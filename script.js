@@ -30,6 +30,10 @@ function getFolderName(name) {
     return null;
 }
 
+let speakTimeout = null;
+let countdownInterval = null;
+let circleTimer = null;
+
 document.addEventListener('DOMContentLoaded', function () {
     $(document).ready(function () {
         var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -287,7 +291,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             ctx.lineTo(part.x, part.y);
                             break;
                         case "up":
-                            ctx.moveTo(part.x+ gridSize, part.y + gridSize);
+                            ctx.moveTo(part.x + gridSize, part.y + gridSize);
                             ctx.arc(cx, part.y + r, r, 0, Math.PI, true);
                             ctx.lineTo(part.x, part.y + gridSize);
                             break;
@@ -397,7 +401,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             break;
                         case "down":
                             ctx.arc(cx, cy, gridSize * 0.65, Math.PI, 0);
-                            ctx.stroke();   
+                            ctx.stroke();
                             break;
                     }
                     if (dir === "left" || dir === "right") {
@@ -419,7 +423,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             ctx.closePath();
                             ctx.fill();
                             ctx.beginPath();
-                            ctx.arc(cx + gridSize * 0.6, cy, gridSize * 0.2,  Math.PI * 1.5, Math.PI * 0.5);
+                            ctx.arc(cx + gridSize * 0.6, cy, gridSize * 0.2, Math.PI * 1.5, Math.PI * 0.5);
                             ctx.closePath();
                             ctx.fill();
                         }
@@ -687,7 +691,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
         function speakAsync(msg, timeout = 3000) {
             return new Promise((resolve, reject) => {
-                const timer = setTimeout(() => {
+
+                if (speakTimeout) clearTimeout(speakTimeout);
+
+                speakTimeout = setTimeout(() => {
                     if (speechSynthesis.speaking) {
                         speechSynthesis.cancel();
                         reject("Timeout: fala interrompida.");
@@ -695,12 +702,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 }, timeout);
 
                 msg.onend = () => {
-                    clearTimeout(timer);
+                    clearTimeout(speakTimeout);
+                    speakTimeout = null;
                     resolve("Fala concluída.");
                 };
 
                 msg.onerror = (e) => {
-                    clearTimeout(timer);
+                    clearTimeout(speakTimeout);
+                    speakTimeout = null;
                     reject("Erro no speech: " + e.error);
                 };
 
@@ -715,33 +724,35 @@ document.addEventListener('DOMContentLoaded', function () {
 
             gifFalando.style.display = 'none';
             palavraFalada.style.display = 'inline';
-            try {
 
-                let count = 3;
-                palavraFalada.textContent = count;
+            if (countdownInterval) clearInterval(countdownInterval);
 
-                const interval = setInterval(() => {
-                    count--;
-                    if (count > 0) {
-                        if (count === 2) {
-                            countdownSound.currentTime = 0;
-                            countdownSound.play();
-                        }
-                        palavraFalada.textContent = count;
+            let count = 3;
+            palavraFalada.textContent = count;
+
+            countdownInterval = setInterval(() => {
+                count--;
+
+                if (count > 0) {
+                    if (count === 2) {
+                        countdownSound.currentTime = 0;
+                        countdownSound.play();
                     }
-                    else {
-                        palavraFalada.textContent = "________";
-                        palavraFalada.style.display = 'none';
-                        gifFalando.style.display = 'inline';
-                        clearInterval(interval);
-                    }
-                }, 1000);
-            } catch (error) {
-                console.error("Erro ao criar o elemento de contagem regressiva:", error);
-            }
+                    palavraFalada.textContent = count;
+                } else {
+                    clearInterval(countdownInterval);
+                    countdownInterval = null;
+                    palavraFalada.textContent = "________";
+                    palavraFalada.style.display = 'none';
+                    gifFalando.style.display = 'inline';
+                }
+            }, 1000);
         }
 
+
         function startTimeoutCircle(duration = 10000) {
+            if (circleTimer) clearInterval(circleTimer);
+
             const countdownContainer = document.querySelector(".countdown-container");
             countdownContainer.style.display = "inline";
             const circle = document.querySelector(".progress");
@@ -755,7 +766,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const startTime = Date.now();
 
-            const timer = setInterval(() => {
+            circleTimer = setInterval(() => {
                 const elapsed = Date.now() - startTime;
                 const remaining = duration - elapsed;
 
@@ -765,7 +776,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 circle.style.strokeDashoffset = offset;
 
                 if (remaining <= 0) {
-                    clearInterval(timer);
+                    clearInterval(circleTimer);
+                    circleTimer = null;
                     circle.style.strokeDashoffset = circumference;
                     text.textContent = "0";
                 }
@@ -773,8 +785,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         function stopTimeoutCircle() {
-            const countdownContainer = document.querySelector(".countdown-container");
-            countdownContainer.style.display = "none";
+            if (circleTimer) {
+                clearInterval(circleTimer);
+                circleTimer = null;
+            }
+            document.querySelector(".countdown-container").style.display = "none";
         }
 
         recognition.onstart = function () {
@@ -858,7 +873,7 @@ document.addEventListener('DOMContentLoaded', function () {
             numPalavras.text(contPalavras);
             numPontos.text(pontos);
 
-                $.ajax({
+            $.ajax({
                 type: 'POST',
                 url: 'conexaoAJAXresultado.php',
                 data: {
